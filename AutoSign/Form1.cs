@@ -16,81 +16,86 @@ namespace AutoSign
         public AutoSign()
         {
             InitializeComponent();
+            this.CenterToScreen();
+        }
+
+        private static string UrlEncode(string str)
+        {
+            StringBuilder sb = new StringBuilder();
+            byte[] byStr = System.Text.Encoding.UTF8.GetBytes(str); //默认是System.Text.Encoding.Default.GetBytes(str)
+            for (int i = 0; i < byStr.Length; i++)
+            {
+                sb.Append(@"%" + Convert.ToString(byStr[i], 16));
+            }
+            return (sb.ToString());
         }
 
         private void start_Click(object sender, EventArgs e)
         {
             tips.Text = "准备签到...";
+            
+            //起始网址
+            string baidu_wapp_favbar = "http://wapp.baidu.com/m?tn=bdFBW";
 
-            string baidu_wapp = "http://wapp.baidu.com";
-
-            IEBrowser ie = new IEBrowser(this.wb);
-            ie.Navigate(baidu_wapp);
-            ie.IEFlow.Wait(new UrlCondition("wait", baidu_wapp, StringCompareMode.StartWith), 10);
-
-            ie.InstallJQuery(JQuery.CodeMin);
-            ie.ExecuteJQuery(JQuery.Create("'a'"), "__jAs");
-            int more_count = ie.ExecuteJQuery<int>(JQuery.Create("__jAs").Length());
-
-            string href = "";
-            for (int index = 0; index < more_count; index++)
+            //IEBrowser
+            IEBrowser ie = new IEBrowser(wb);
+            try
             {
-                ie.ExecuteJQuery(JQuery.Create("__jAs").Eq(index.ToString()), "__jA");
-                if (ie.ExecuteJQuery<string>(JQuery.Create("__jA").Text()) == "更多>>")
+                ie.Navigate(baidu_wapp_favbar);
+                ie.IEFlow.Wait(new UrlCondition("wait", baidu_wapp_favbar, StringCompareMode.StartWith), 10);
+            }
+            catch (TimeoutException)
+            {
+                MessageBox.Show("网页打开超时，请重试");
+            }
+            
+            //JQUERY统计链接数
+            ie.InstallJQuery(JQuery.CodeMin);
+            ie.ExecuteJQuery(JQuery.Create("'a'"), "__jBs");
+            int fav_count = ie.ExecuteJQuery<int>(JQuery.Create("__jBs").Length());
+
+            //将我喜欢的吧放到List
+            List<string> fav_bar = new List<string>();
+            for (int index = 0; index < fav_count; index++)
+            {
+                ie.ExecuteJQuery(JQuery.Create("__jBs").Eq(index.ToString()), "__jB");
+                string fav_text = ie.ExecuteJQuery<string>(JQuery.Create("__jB").Text());
+                if (fav_text != "发言记录" && fav_text != "贴吧" && fav_text != "百度")
                 {
-                    href = ie.ExecuteJQuery<string>(JQuery.Create("__jA").Attr("'href'"));
+                    string fav_url = "http://wapp.baidu.com/m?kw=" + UrlEncode(fav_text);
+                    fav_bar.Add(fav_url);
                 }
             }
 
-            if (href.Length > 0)
+            //历遍每个吧，查找签到的链接URL，打开。
+            int num = 0;
+            foreach (string bar_url in fav_bar)
             {
-                string[] more_url_array = href.Split('/');
-                string pre_bar = baidu_wapp + "/" + more_url_array[1] + @"/" + more_url_array[2] + @"/";
+                num++;
+                tips.Text = "进度：" + num + "/" + fav_bar.Count;
 
-                string my_favorite = baidu_wapp + href;
-                ie.Navigate(my_favorite);
-                ie.IEFlow.Wait(new UrlCondition("wait", my_favorite, StringCompareMode.StartWith));
-
+                ie.Navigate(bar_url);
+                ie.IEFlow.Wait(new UrlCondition("wait", bar_url, StringCompareMode.StartWith), 10);
+                
                 ie.InstallJQuery(JQuery.CodeMin);
-                ie.ExecuteJQuery(JQuery.Create("'a'"), "__jBs");
-                int fav_count = ie.ExecuteJQuery<int>(JQuery.Create("__jBs").Length());
-
-                List<string> fav_bar = new List<string>();
-                for (int index = 0; index < fav_count; index++)
+                ie.ExecuteJQuery(JQuery.Create("'a'"), "__jCs");
+                int sign_count = ie.ExecuteJQuery<int>(JQuery.Create("__jCs").Length());
+                for (int index = 0; index < sign_count; index++)
                 {
-                    ie.ExecuteJQuery(JQuery.Create("__jBs").Eq(index.ToString()), "__jB");
-                    string fav_text = ie.ExecuteJQuery<string>(JQuery.Create("__jB").Text());
-                    string fav_url = pre_bar + ie.ExecuteJQuery<string>(JQuery.Create("__jB").Attr("'href'"));
-                    if (fav_text != "发言记录" && fav_text != "贴吧" && fav_text != "百度")
+                    ie.ExecuteJQuery(JQuery.Create("__jCs").Eq(index.ToString()), "__jC");
+                    string sign_text = ie.ExecuteJQuery<string>(JQuery.Create("__jC").Text());
+                    string sign_url = "http://wapp.baidu.com" + ie.ExecuteJQuery<string>(JQuery.Create("__jC").Attr("'href'"));
+
+                    if (sign_text == "签到")
                     {
-                        fav_bar.Add(fav_url);
+                        ie.Navigate(sign_url);
+                        ie.IEFlow.Wait(new UrlCondition("wait", sign_url, StringCompareMode.StartWith));
                     }
                 }
-                int num = 0;
-                foreach (string bar_url in fav_bar)
-                {
-                    num++;
-                    tips.Text = "进度：" + num + "/" + fav_bar.Count;
-
-                    ie.Navigate(bar_url);
-                    ie.IEFlow.Wait(new UrlCondition("wait", bar_url, StringCompareMode.StartWith));
-
-                    ie.InstallJQuery(JQuery.CodeMin);
-                    ie.ExecuteJQuery(JQuery.Create("'a'"), "__jCs");
-                    int sign_count = ie.ExecuteJQuery<int>(JQuery.Create("__jCs").Length());
-                    for (int index = 0; index < sign_count; index++)
-                    {
-                        ie.ExecuteJQuery(JQuery.Create("__jCs").Eq(index.ToString()), "__jC");
-                        string sign_text = ie.ExecuteJQuery<string>(JQuery.Create("__jC").Text());
-                        string sign_url = baidu_wapp + ie.ExecuteJQuery<string>(JQuery.Create("__jC").Attr("'href'"));
-                        if (sign_text == "签到")
-                        {
-                            ie.Navigate(sign_url);
-                            ie.IEFlow.Wait(new UrlCondition("wait", sign_url, StringCompareMode.StartWith));
-                        }
-                    }
-                }
-                tips.Text = fav_bar.Count + "签到完毕！";
+            }
+            if (num != 0)
+            {
+                tips.Text = "签到完毕！";
             }
         }
     }

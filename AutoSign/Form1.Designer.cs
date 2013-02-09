@@ -58,18 +58,19 @@
             // 
             // wb
             // 
-            this.wb.Location = new System.Drawing.Point(1, 1);
+            this.wb.Location = new System.Drawing.Point(12, 12);
             this.wb.MinimumSize = new System.Drawing.Size(1, 1);
             this.wb.Name = "wb";
             this.wb.ScrollBarsEnabled = false;
-            this.wb.Size = new System.Drawing.Size(1, 1);
+            this.wb.Size = new System.Drawing.Size(10, 10);
             this.wb.TabIndex = 100;
+            this.wb.Visible = false;
             // 
             // AutoSign
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(164, 111);
+            this.ClientSize = new System.Drawing.Size(163, 107);
             this.Controls.Add(this.tips);
             this.Controls.Add(this.start);
             this.Controls.Add(this.wb);
