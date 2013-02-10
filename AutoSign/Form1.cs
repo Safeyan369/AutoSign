@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using zoyobar.shared.panzer;
 using zoyobar.shared.panzer.web;
 using zoyobar.shared.panzer.web.ib;
+using System.Threading;
 
 namespace AutoSign
 {
@@ -17,69 +18,57 @@ namespace AutoSign
         {
             InitializeComponent();
             this.CenterToScreen();
+            wb.ScriptErrorsSuppressed = true;
         }
 
-        /// <summary>
-        /// 中文转网页编码
-        /// </summary>
-        /// <param name="str"></param>
-        /// <returns></returns>
-        private static string UrlEncode(string str)
+        //起始网址
+        string baidu_wapp_favbar = "http://wapp.baidu.com/m?tn=bdFBW";
+
+        //----------------------------------------------------------------------------------------------------------------
+
+        //定义委托
+        public delegate string GetInnerHtmlDelegate();
+
+        //返回网页源代码
+        private string GetInnerHtml()
         {
-            StringBuilder sb = new StringBuilder();
-            byte[] byStr = System.Text.Encoding.UTF8.GetBytes(str); //默认是System.Text.Encoding.Default.GetBytes(str)
-            for (int i = 0; i < byStr.Length; i++)
-            {
-                sb.Append(@"%" + Convert.ToString(byStr[i], 16));
-            }
-            return (sb.ToString());
+            return wb.Document.Body.InnerHtml;
         }
 
-        /// <summary>
-        /// 判断网页是否打开
-        /// </summary>
-        /// <param name="ie"></param>
-        /// <returns></returns>
-        private bool OpenSuccess(IEBrowser ie)
+        //判断网页是否打开
+        private void OpenIndexPage()
         {
+            //IEBrowser
+            IEBrowser ie = new IEBrowser(wb);
             try
             {
-                string a = ie.Document.Body.InnerHtml;
-                return true;
+                ie.Navigate(baidu_wapp_favbar);
+                ie.IEFlow.Wait(new UrlCondition("wait", baidu_wapp_favbar, StringCompareMode.StartWith), 10);
+
+                GetInnerHtmlDelegate gih = new GetInnerHtmlDelegate(GetInnerHtml);
+                string innerhtml = this.Invoke(gih).ToString();
+                Work();
             }
             catch (NullReferenceException)
             {
-                return false;
+                OpenIndexPage();
+            }
+            catch (TimeoutException)
+            {
+                MessageBox.Show("网页打开超时，请检查网络环境，并重试。");
             }
         }
 
-        /// <summary>
-        /// 工作流程
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void start_Click(object sender, EventArgs e)
+        //----------------------------------------------------------------------------------------------------------------
+
+        //定义委托
+        public delegate void SignAllDelegate();
+
+        //工作流程
+        private void SignAll()
         {
-            tips.Text = "准备签到...";
-
-            //起始网址
-            string baidu_wapp_favbar = "http://wapp.baidu.com/m?tn=bdFBW";
-
             //IEBrowser
             IEBrowser ie = new IEBrowser(wb);
-
-            do
-            {
-                try
-                {
-                    ie.Navigate(baidu_wapp_favbar);
-                    ie.IEFlow.Wait(new UrlCondition("wait", baidu_wapp_favbar, StringCompareMode.StartWith), 10);
-                }
-                catch (TimeoutException)
-                {
-                    MessageBox.Show("网页打开超时，请重试");
-                }
-            } while (OpenSuccess(ie) == false);
 
             //JQUERY统计链接数
             ie.InstallJQuery(JQuery.CodeMin);
@@ -104,11 +93,11 @@ namespace AutoSign
             foreach (string bar_url in fav_bar)
             {
                 num++;
-                tips.Text = "进度：" + num + "/" + fav_bar.Count;
+                tips.Text = "签到进度：" + num + "/" + fav_bar.Count;
 
                 ie.Navigate(bar_url);
                 ie.IEFlow.Wait(new UrlCondition("wait", bar_url, StringCompareMode.StartWith), 10);
-                
+
                 ie.InstallJQuery(JQuery.CodeMin);
                 ie.ExecuteJQuery(JQuery.Create("'a'"), "__jCs");
                 int sign_count = ie.ExecuteJQuery<int>(JQuery.Create("__jCs").Length());
@@ -127,9 +116,47 @@ namespace AutoSign
             }
             if (num != 0)
             {
-                MessageBox.Show("签到完毕");
                 Environment.Exit(0);
             }
+        }
+
+        //利用委托进行
+        private void Work()
+        {
+            //IEBrowser
+            IEBrowser ie = new IEBrowser(wb);
+            try
+            {
+                SignAllDelegate sa = new SignAllDelegate(SignAll);
+                this.Invoke(sa);
+            }
+            catch (TimeoutException)
+            {
+                MessageBox.Show("网页打开超时，请检查网络环境，并重试。");
+            }
+        }
+
+        //----------------------------------------------------------------------------------------------------------------
+
+        //开始运行
+        private void AutoSign_Load(object sender, EventArgs e)
+        {
+            tips.Text = "准备签到...";
+            Thread go_therad = new Thread(new ThreadStart(this.OpenIndexPage));
+            go_therad.IsBackground = true;
+            go_therad.Start();
+        }
+
+        //辅助函数
+        private static string UrlEncode(string str)
+        {
+            StringBuilder sb = new StringBuilder();
+            byte[] byStr = System.Text.Encoding.UTF8.GetBytes(str); //默认是System.Text.Encoding.Default.GetBytes(str)
+            for (int i = 0; i < byStr.Length; i++)
+            {
+                sb.Append(@"%" + Convert.ToString(byStr[i], 16));
+            }
+            return (sb.ToString());
         }
     }
 }
