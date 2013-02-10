@@ -19,6 +19,11 @@ namespace AutoSign
             this.CenterToScreen();
         }
 
+        /// <summary>
+        /// 中文转网页编码
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
         private static string UrlEncode(string str)
         {
             StringBuilder sb = new StringBuilder();
@@ -30,25 +35,52 @@ namespace AutoSign
             return (sb.ToString());
         }
 
+        /// <summary>
+        /// 判断网页是否打开
+        /// </summary>
+        /// <param name="ie"></param>
+        /// <returns></returns>
+        private bool OpenSuccess(IEBrowser ie)
+        {
+            try
+            {
+                string a = ie.Document.Body.InnerHtml;
+                return true;
+            }
+            catch (NullReferenceException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 工作流程
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void start_Click(object sender, EventArgs e)
         {
             tips.Text = "准备签到...";
-            
+
             //起始网址
             string baidu_wapp_favbar = "http://wapp.baidu.com/m?tn=bdFBW";
 
             //IEBrowser
             IEBrowser ie = new IEBrowser(wb);
-            try
+
+            do
             {
-                ie.Navigate(baidu_wapp_favbar);
-                ie.IEFlow.Wait(new UrlCondition("wait", baidu_wapp_favbar, StringCompareMode.StartWith), 10);
-            }
-            catch (TimeoutException)
-            {
-                MessageBox.Show("网页打开超时，请重试");
-            }
-            
+                try
+                {
+                    ie.Navigate(baidu_wapp_favbar);
+                    ie.IEFlow.Wait(new UrlCondition("wait", baidu_wapp_favbar, StringCompareMode.StartWith), 10);
+                }
+                catch (TimeoutException)
+                {
+                    MessageBox.Show("网页打开超时，请重试");
+                }
+            } while (OpenSuccess(ie) == false);
+
             //JQUERY统计链接数
             ie.InstallJQuery(JQuery.CodeMin);
             ie.ExecuteJQuery(JQuery.Create("'a'"), "__jBs");
@@ -95,7 +127,8 @@ namespace AutoSign
             }
             if (num != 0)
             {
-                tips.Text = "签到完毕！";
+                MessageBox.Show("签到完毕");
+                Environment.Exit(0);
             }
         }
     }
